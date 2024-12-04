@@ -203,3 +203,143 @@ def calculate_thrust():
 
 # Appel de la fonction avec affichage des résultats intermédiaires
 F_tau = calculate_thrust()
+
+print("\n----------------------------------")
+print("STUDY OF THE UNCONTROLLED AIRCRAFT")
+print("----------------------------------")
+
+print("\n(SHORT PERIOD MODE)")
+print("-------------")
+def short_period(A,B):
+    Asp= A[2:4,2:4]
+    Bsp= B[2:4,0:1]
+
+    Csa = np.matrix([[1, 0]])
+    Csq = np.matrix([[0, 1]])
+    Ds = np.matrix([[0]])
+    TaDm_ss = control.ss(Asp, Bsp, Csa, Ds)    # creation of the system for the alpha variable
+
+    print("State Space representation\n")
+
+    control.matlab.damp(TaDm_ss)             # computing the eigenvalues, the pulsation and damping ratio of the system
+
+    print("\nTransfer function alpha/δm = ")
+    TaDm_tf = control.tf(TaDm_ss)
+
+    print(TaDm_tf)
+    print("\nStatic gain of alpha/δm = %f"%(control.dcgain(TaDm_tf)))
+    TqDm_ss = control.ss(Asp, Bsp, Csq, Ds)    # creation of the system for the q variable
+
+    print("\nTransfer function q/δm = ")
+    TqDm_tf = control.ss2tf(TqDm_ss)
+
+    print(TqDm_tf)
+    print("\nStatic gain of q/δm =%f \n"%(dcgain(TqDm_tf)))
+
+    plt.figure(1)  # step response of the alpha and q variables for the short period mode
+    Ya, Ta = control.matlab.step(TaDm_tf, arange(0,10,0.01))
+    Yq, Tq = control.matlab.step(TqDm_tf, arange(0,10,0.01))
+    plt.plot(Ta, Ya, "b", Tq, Yq, "r", lw = 2)
+    plt.plot([0, Ta[-1]], [Ya[-1], Ya[-1]], 'k--', lw = 1)
+    plt.plot([0, Ta[-1]], [1.05 * Ya[-1], 1.05 * Ya[-1]], 'k--', lw = 1)
+    plt.plot([0, Ta[ -1 ]], [0.95 * Ya[-1], 0.95 * Ya[-1]], 'k--', lw = 1)
+    plt.plot([0, Tq[-1]], [Yq[-1], Yq[-1]], 'k--', lw = 1)
+    plt.plot([0, Tq[-1]], [1.05 * Yq[-1], 1.05 * Yq[-1]], 'k--', lw = 1)
+    plt.plot([0, Tq[-1]], [0.95 * Yq[-1], 0.95 * Yq[-1]], 'k--', lw = 1)
+    plt.minorticks_on()
+    grid(True)
+
+    plt.title(r'Step response $alpha/δm$ et $q/δm$')
+    plt.legend((r'$alpha/δm$',r'$q/δm$'))
+    plt.xlabel('Time (s)')
+    plt.ylabel(r'$alpha$ (rad) & $q$ (rad/s)')
+
+    # computing the settling time for both variables of the associated response
+    Osa, Tra, Tsa = step_info(Ta, Ya)
+    Osq, Trq, Tsq = step_info(Tq, Yq)
+    yya = interp1d(Ta, Ya)
+    # plt.plot(Tsa, yya(Tsa), 'bs')
+    # plt.text(Tsa, yya(Tsa), Tsa)
+    yyq = interp1d(Tq, Yq)
+    # plt.plot(Tsq, yyq(Tsq), 'rs')
+    # plt.text(Tsq, yyq(Tsq), Tsq)
+    plt.show()
+    print("α Settling time 5%% = %f s" %Tsa)
+    print("q Settling time 5%% = %f s" %Tsq)
+    savefig("stepalphaq.pdf")
+
+    return TqDm_tf
+
+TqDm_tf = short_period(A,B)
+
+
+print("\n(PHUGOID MODE)")
+print("-------------")
+def phugoid_mode(A,B):
+    A_phugo = A[0:2, 0:2]
+    B_phugo = B[0:2, 0:1]
+
+    Cpv = np.matrix([[1, 0]])
+    Cpg = np.matrix([[0, 1]])
+    Dp = np.matrix([[0]])
+    TvDm_ss = control.ss(A_phugo , B_phugo, Cpv, Dp)   # creation of the system for the V variable
+
+    print("\n State Space representation of the phugoid period")
+    print(TvDm_ss)
+
+    control.matlab.damp(TvDm_ss)             # computing the eigenvalues, the pulsation and damping ratio of the system
+
+    print("\nTransfer function V/δm = ")
+
+    TvDm_tf = control.tf(TvDm_ss)
+
+    print(TvDm_tf)
+    print("\nStatic gain of V/δm = %f"%(control.dcgain(TvDm_tf)))
+
+    TgDm_ss = control.ss(A_phugo, B_phugo, Cpg, Dp)
+
+    print("\nTransfer function gamma/δm = ")
+
+    TgDm_tf = control.ss2tf(TgDm_ss)
+
+    print(TgDm_tf)
+    print("Static gain of gamma/δm =%f\n"%(dcgain(TgDm_tf)))
+
+    plt.figure(2)                            # plot the step response of the V and gamma variables for the phugoid mode
+
+    Yv, Tv = control.matlab.step(TvDm_tf, arange(0, 700, 0.1))
+    Yg, Tg = control.matlab.step(TgDm_tf, arange(0, 700, 0.1))
+    plt.plot(Tv, Yv, "b", Tg, Yg,"r",lw = 2)
+    plt.plot([0, Tv[-1]], [Yv[-1], Yv[-1]], 'k--', lw = 1)
+    plt.plot([0, Tv[-1]], [1.05 * Yv[-1], 1.05 * Yv[-1] ], 'k--', lw = 1)
+    plt.plot([0, Tv[-1]], [0.95 * Yv[-1], 0.95 * Yv[-1] ], 'k--', lw = 1)
+    plt.plot([0, Tg[-1]], [Yg[-1], Yg[-1]], 'k--', lw = 1)
+    plt.plot([0, Tg[-1]], [1.05 * Yg[-1], 1.05 * Yg[-1]], 'k--', lw = 1)
+    plt.plot([0, Tg[-1]], [0.95 * Yg[-1], 0.95 * Yg[-1]], 'k--', lw = 1)
+
+    plt.minorticks_on()
+    grid(True)
+
+    plt.title(r'Step response $V/δm$ et $𝛾/δm$')
+    plt.legend((r'$V/δm$',r'$gamma/δm$'))
+    plt.xlabel('Time (s)')
+    plt.ylabel(r'$V$ (rad) & $gamma$ (rad/s)')
+    plt.show()
+
+                                            # computing the settling time for both variables of the associated response
+
+    Osv, Trv, Tsv = step_info(Tv, Yv)
+    Osg, Trg, Tsg = step_info(Tg, Yg)
+    yyv = interp1d(Tv, Yv)
+    # plt.plot(Tsv, yyv(Tsv), 'bs')
+    # plt.text(Tsv, yyv(Tsv) +1, Tsv)
+    yyg = interp1d(Tg, Yg)
+    # plt.plot(Tsg, yyg(Tsg), 'rs')
+    # plt.text(Tsg, yyg(Tsg) -1, Tsg)
+
+    print("V Settling time 5%% = %f s" %Tsv)
+    print("𝛾 Settling time 5%% = %f s\n" %Tsg)
+
+    savefig("stepVgamma.pdf")
+
+phugoid_mode(A,B)
