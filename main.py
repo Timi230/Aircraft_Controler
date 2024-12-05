@@ -179,6 +179,11 @@ A,B, C, D = space_model(C_Zeq, C_Xeq, C_Xδm, alpha_eq, Fp_xeq)
 sys = control.ss(A,B,C,D)
 control.matlab.damp(sys)  # calcul of the damping ratio
 
+print(sys.ninputs)  # Nombre d'entrées
+print(sys.noutputs) # Nombre de sorties
+
+k = sisotool(minreal(sys[0,0]))
+
 def calculate_thrust():
     # Calcul de la traînée aérodynamique
     F_drag = (1/2) * rho * V_eq**2 * S * C_Xeq
@@ -343,3 +348,380 @@ def phugoid_mode(A,B):
     savefig("stepVgamma.pdf")
 
 phugoid_mode(A,B)
+
+print("\n----------------------------------")
+print("CONTROLLERS SYNTHESIS")
+print("----------------------------------")
+def get_KRvalue(A,B):
+    # to be adapt to the nex state vector of size (5,1)
+    Anew = A[1:, 1:]                           # defining the new matrices and vectors for the system 
+    Bnew = B[1:]
+    Dnew = 0
+
+    Cq = np.array([[0], [0], [1], [0], [0]]).T # output matrix for q 
+                                            
+    SS_q = control.ss(Anew, Bnew, Cq, Dnew)    # compute the state space and transfer function associated to find Kr
+    TF_q = control.ss2tf(SS_q)
+    sisotool(-TF_q) 
+
+    Kr = -0.13225   # From the sisotool when xi = 0.75 still 
+    return Anew, Bnew, Cq, Dnew, Kr
+
+Anew, Bnew, Cq, Dnew, Kr = get_KRvalue(A,B)
+
+
+print("\n----------------------------------")
+print("Q FEEDBACK LOOP")
+print("----------------------------------")
+def q_feedback_loop(Anew, Bnew, Cq, Dnew, Kr, TqDm_tf):
+    Aq = Anew - Kr * Bnew @ Cq
+    Bq = Kr * Bnew
+    Dq = Kr * Dnew
+    Closed_State_space_q = control.ss(Aq, Bq, Cq, Dq)  #create the the state space 
+    print("Closed loop of the State Space representation of q :\n", Closed_State_space_q)
+    control.matlab.damp(Closed_State_space_q)
+
+    print("\n——————————— TF close loop ———————————\n")
+    Closed_Tf_ss_q = control.tf(Closed_State_space_q)  #transfer function of the state space 
+    print("Transfer Function of the closed loop : ", Closed_Tf_ss_q)
+
+    print("\n————————— Pole close loop ———————————\n")
+    control.matlab.damp(Closed_State_space_q)
+
+    print("\n—————————— Step response  ——————————\n")
+    plt.figure(3)
+    Yqcl, Tqcl = control.matlab.step(Closed_Tf_ss_q,np.arange(0, 5, 0.01))
+    plt.plot(Tqcl, Yqcl, "b", lw = 2)
+    plt.plot([0, Tqcl[-1]], [Yqcl[-1], Yqcl[-1]], 'k--', lw =  1)
+    plt.plot([0, Tqcl[-1]], [1.05 * Yqcl[-1], 1.05 * Yqcl[-1]], 'k--',lw = 1)
+    plt.plot([0, Tqcl[-1]], [0.95 * Yqcl[-1], 0.95 * Yqcl[-1]], 'k--',lw = 1)
+    plt.minorticks_on()
+    plt.grid(visible = True, which = 'both')
+    plt.title(r'Step response $q/q_c$')
+    plt.xlabel('Time (s)')
+    plt.ylabel(r'$q$ (rad/s)')
+
+    Osqcl, Trqcl, Tsqcl = step_info(Tqcl, Yqcl)
+    yyqcl = interp1d(Tqcl, Yqcl)
+    plt.plot(Tsqcl, yyqcl(Tsqcl), 'rs')
+    plt.text(Tsqcl, yyqcl(Tsqcl) - 0.02, Tsqcl)
+    plt.show()
+    print('q Settling time 5%% = %f s'%Tsqcl)
+
+    print("\n———————————————— Plot of the open loop response, the closed loop response without filter and the closed loop response with the washout filter ———————————————————————\n")
+    𝜏 = 0.7
+    tf_washout_filter = control.tf([𝜏, 0], [𝜏, 1])
+    tf_washout_filter_closed = control.feedback(Kr, TqDm_tf * tf_washout_filter)
+
+    C_alpha = [0, 1, 0, 0, 0]
+    ss_alpha = control.ss(Anew, Bnew, C_alpha, Dnew)
+
+    tf_alpha = control.tf(ss_alpha)
+    tf_alpha_washout = control.series(1 / Kr, tf_washout_filter_closed, tf_alpha)
+    tf_alpha_no_washout = control.series(1 / Kr, control.feedback(Kr, TqDm_tf), tf_alpha)
+    t = np.arange(0, 15, 0.01)
+
+    plt.figure(5)
+    y, t = control.matlab.step(tf_alpha, t)
+    plt.plot(t, y, label = "Alpha alpha", color = "red")
+    y, t = control.matlab.step(tf_alpha_no_washout, t)
+    plt.plot(t, y, label = "Alpha alpha no washout", color = "blue")
+    y, t = control.matlab.step(tf_alpha_washout, t)
+    plt.plot(t, y, linestyle = (0, (5, 10)), color = "green", label = "Alpha alpha washout")
+    plt.title("Washout filter")
+    plt.grid()
+    plt.legend()
+    plt.xlabel('Time (s)')
+    plt.ylabel(r'$alpha$')
+    plt.show()
+
+    return Aq, Bq, Cq, Dq, C_alpha
+
+Aq, Bq, Cq, Dq, C_alpha = q_feedback_loop(Anew, Bnew, Cq, Dnew, Kr, TqDm_tf)
+
+
+
+print("\n----------------------------------")
+print("GAMMA FEEDBACK LOOP")
+print("----------------------------------")
+def gamma_feedback_loop(Aq, Bq, Dq):
+
+    print("\n————————————————— Closed loop state space representation ————————————————\n")
+    C_gamma  = np.array([[1],[0],[0],[0],[0]]).T
+
+    SS_gamma  = control.ss(Aq, Bq, C_gamma , Dq)
+    TF_gamma  = minreal(control.tf(SS_gamma))
+    sisotool(TF_gamma)
+    K_gamma = 16.42
+    A_gamma = Aq - K_gamma * Bq @ C_gamma
+    B_gamma = K_gamma * Bq
+    D_gamma = K_gamma * Dq
+    Cl_State_space_gamma = control.ss(A_gamma, B_gamma, C_gamma, D_gamma)  #create the the state space 
+    Cl_Tf_ss_gamma = control.tf(Cl_State_space_gamma)
+    print(Cl_State_space_gamma)
+    control.matlab.damp(Cl_State_space_gamma)
+
+    print("\n————————————————— TF closed loop ————————————————\n")
+    print(Cl_Tf_ss_gamma)
+
+    print("\n————————————————— Pole closed loop ————————————————\n")
+    control.matlab.damp(Cl_State_space_gamma)
+
+
+    print("\n————————————————————Plot of the step response of the closed loop —————————————\n")
+
+    plt.figure(5)
+    Y_gamma_cl,T_gamma_cl = control.matlab.step(Cl_Tf_ss_gamma,np.arange(0,5,0.01))
+    plt.plot(T_gamma_cl,Y_gamma_cl,"b",lw=2)
+    plt.plot([0,T_gamma_cl[-1]],[Y_gamma_cl[-1],Y_gamma_cl[-1]],'k--',lw = 1)
+    plt.plot([0,T_gamma_cl[-1]],[1.05 * Y_gamma_cl[-1],1.05 * Y_gamma_cl[-1]],'k--',lw = 1)
+    plt.plot([0,T_gamma_cl[-1]],[0.95 * Y_gamma_cl[-1],0.95 * Y_gamma_cl[-1]],'k--',lw = 1)
+    plt.minorticks_on()
+    plt.grid(visible = True, which ='both')
+    plt.title(r'Step response $gamma/gamma_c$')
+    plt.xlabel('Time (s)')
+    plt.ylabel(r'$gamma$ (rad/s)')
+    plt.show()
+
+    Os𝛾cl,Tr𝛾cl,Ts_gamma_cl=step_info(T_gamma_cl,Y_gamma_cl)
+    yY_gamma_cl=interp1d(T_gamma_cl,Y_gamma_cl)
+    plt.plot(Ts_gamma_cl,yY_gamma_cl(Ts_gamma_cl),'rs')
+    plt.text(Ts_gamma_cl,yY_gamma_cl(Ts_gamma_cl)-0.02,Ts_gamma_cl)
+    print('gamma Settling time 5%% = %f s'%Ts_gamma_cl)
+
+    return A_gamma, B_gamma, D_gamma
+
+A_gamma, B_gamma, D_gamma = gamma_feedback_loop(Aq, Bq, Dq)
+
+
+print("\n----------------------------------")
+print("Z FEEDBACK LOOP")
+print("----------------------------------")
+def Z_feedback_loop(A_gamma, B_gamma, D_gamma):
+
+    Cz = np.array([[0],[0],[0],[0],[1]]).T
+    SS_z = control.ss(A_gamma, B_gamma, Cz, D_gamma)
+    TF_z = control.ss2tf(SS_z)
+
+    Kz = 0.00010
+
+    Az = A_gamma - Kz * B_gamma @ Cz
+    Bz = Kz * B_gamma
+    Dz = Kz * D_gamma
+
+    Cl_State_space_z = control.ss(Az, Bz, Cz, Dz)
+    print("Closed loop of the State Space representation of $z$ :\n", Cl_State_space_z)
+
+    print("\n————————————————— TF closed loop ————————————————\n")
+    Cl_Tf_ss_z = control.tf(Cl_State_space_z)
+    print(Cl_Tf_ss_z)
+
+    print("\n————————————————— Pole closed loop ————————————————\n")
+    control.matlab.damp(Cl_State_space_z)
+
+    print("\n————————————————————Plot of the step response of the closed loop —————————————\n")
+
+    plt.figure(6)
+    Yzcl,Tzcl = control.matlab.step(Cl_Tf_ss_z,np.arange(0,5,0.01))
+    plt.plot(Tzcl,Yzcl,"b",lw = 2)
+    plt.plot([0,Tzcl[-1]],[Yzcl[-1],Yzcl[-1]],'k--',lw = 1)
+    plt.plot([0,Tzcl[-1]],[1.05 * Yzcl[-1],1.05 * Yzcl[-1]],'k--',lw = 1)
+    plt.plot([0,Tzcl[-1]],[0.95 * Yzcl[-1],0.95 * Yzcl[-1]],'k--',lw = 1)
+    plt.minorticks_on()
+    plt.grid(visible = True, which ='both')
+    plt.title(r'Step response $z/z_c$')
+    plt.xlabel('Time (s)')
+    plt.ylabel(r'$z$ (rad/s)')
+    plt.show()
+
+    Oszcl,Trzcl,Tszcl=step_info(Tzcl,Yzcl)
+    yyzcl=interp1d(Tzcl,Yzcl)
+    plt.plot(Tszcl,yyzcl(Tszcl),'rs')
+    plt.text(Tszcl,yyzcl(Tszcl)-0.02,Tszcl)
+    print('z Settling time 5%% = %f s'%Tszcl)
+
+    return Cl_State_space_z, Az, Bz, Dz
+
+Cl_State_space_z, Az, Bz, Dz= Z_feedback_loop(A_gamma, B_gamma, D_gamma)
+
+
+print("\n----------------------------------")
+print("ADD A SAT IN GAMMA CONTROL LOOP")
+print("----------------------------------")
+def saturation(A_gamma_2, B_gamma_2, alpha_eq, alpha0):
+ 
+    A_gamma = A_gamma_2
+    B_gamma = B_gamma_2
+    
+    C_alpha_sat = np.array([[0,1,0,0,0]])
+    D_alpha_sat = 0
+    
+    sys_gamma_alpha = ss(A_gamma,B_gamma,C_alpha_sat,D_alpha_sat)
+    TF_gamma_alpha = ss2tf(sys_gamma_alpha)
+    
+    alpha_max = alpha_eq + (alpha_eq - alpha0)*3.1
+    
+
+    def f(gamma,TF,alpha_max):
+
+        f_gamma =  np.max(control.matlab.step(gamma*TF)[0]) - alpha_max
+
+        return f_gamma
+    
+    def dichotomie(f,a,b,e,TF,alpha_max):
+        delta = 1
+        while delta > e:
+            m = (a + b) / 2
+            delta = abs(b - a)
+            if f(m,TF,alpha_max) == 0:
+                return m
+            elif f(a,TF,alpha_max)*f(m,TF,alpha_max) > 0:
+                a = m
+            else:
+                b = m
+        return a, b
+
+    gamma_min, gamma_max = dichotomie(f,0,10,1e-15,TF_gamma_alpha,alpha_max)
+    
+    gamma_opt = (gamma_min + gamma_max)/2
+    
+
+    alpha_max_step = np.max(control.matlab.step(TF_gamma_alpha)[0])
+    
+    gamma_opt_2 = alpha_max/alpha_max_step
+    
+    print('optimal gamma (DICHOTOMIE METHOD)')
+    print("gamma = ", gamma_opt)
+    
+    print('optimal gamma (DIVIDING METHOD)')
+    print("gamma = ", gamma_opt_2)
+
+    return alpha_max, gamma_max
+
+alpha_max, gamma_max  = saturation(A_gamma, B_gamma, alpha_eq, alpha0)
+
+
+print("\n----------------------------------")
+print("FLIGHT MANAGEMENT")
+print("----------------------------------")
+import numpy as np
+import control
+import matplotlib.pyplot as plt
+
+def flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z):
+    initial_altitude = 0             # mètres
+    Cruise_altitude = 1828.8        # mètres
+    final_altitude = 800            # mètres
+    gamma_ascent = np.deg2rad(12)   # angle de montée en radians
+    gamma_descent = np.deg2rad(-6)  # angle de descente en radians
+
+    # Vecteur temps pour chaque phase
+    t_initial = np.linspace(0, 10, 1000)
+    t_ascent = np.linspace(0, 15.3, 1000)
+    t_cruise = np.linspace(0, 100, 1000)
+    t_descent = np.linspace(0, 12.3, 1000)
+    t_final = np.linspace(0, 10, 1000)
+
+    #————————————— Initial Cruise Phase ————————————————#
+    initial = np.zeros((5,)) 
+    initial[-2] = initial_altitude  # Altitude initiale dans l'état
+
+    u_initial = np.ones_like(t_initial) * initial_altitude  # Signal d'entrée
+    altitude_initial, state_initial, _ = control.forced_response(
+        Cl_State_space_z, T=t_initial, U=u_initial, X0=initial
+    )
+
+    plt.figure(7)
+    plt.plot(t_initial, altitude_initial, label='initial phase')
+    plt.title("Initial phase of the aircraft")
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Altitude (meters)")
+    plt.show()
+
+    #———————— Ascent Phase with a Constant Flight Path Angle ————————#
+    initial_ascent = state_initial[:, -1]  # Dernier état de la phase initiale
+    Cz = np.array([[0, 0, 0, 0, 1]])  # Matrice de sortie
+    SS_gamma_h = control.ss(Aq, Bq * gamma_ascent, Cz, Dz)
+
+    u_ascent = np.ones_like(t_ascent) * gamma_ascent  # Signal d'entrée
+    altitude_ascent, state_ascent, _ = control.forced_response(
+        SS_gamma_h, T=t_ascent, U=u_ascent, X0=initial_ascent
+    )
+
+    plt.figure(8)
+    plt.plot(t_ascent, altitude_ascent, label='ascent')
+    plt.title("Altitude during ascent phase at γ = " + str(round(np.rad2deg(gamma_ascent), 3)) + "°")
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Altitude (meters)")
+    plt.show()
+
+    #——————————— Cruise Flight at Constant Altitude ———————————#
+    initial_cruise = state_ascent[:, -1]  # Dernier état de la montée
+    Cl_State_space_zh = control.ss(Az, Bz * Cruise_altitude, Cz, Dz)
+
+    u_cruise = np.ones_like(t_cruise) * Cruise_altitude  # Signal d'entrée
+    altitude_cruise, state_cruise, _ = control.forced_response(
+        Cl_State_space_zh, T=t_cruise, U=u_cruise, X0=initial_cruise
+    )
+
+    plt.figure(9)
+    plt.plot(t_cruise, altitude_cruise, label='cruise')
+    plt.title("Cruise phase of the aircraft")
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Altitude (meters)")
+    plt.show()
+
+    #—————————— Descent Phase with a Constant Flight Path Angle ——————————#
+    initial_descent = state_cruise[:, -1]  # Dernier état du vol de croisière
+    SS_gammad = control.ss(Aq, Bq * gamma_descent, Cz, Dz)
+
+    u_descent = np.ones_like(t_descent) * gamma_descent  # Signal d'entrée
+    altitude_descent, state_descent, _ = control.forced_response(
+        SS_gammad, T=t_descent, U=u_descent, X0=initial_descent
+    )
+
+    plt.figure(10)
+    plt.plot(t_descent, altitude_descent, label='descent')
+    plt.title("Altitude during descent phase at γ = " + str(round(np.rad2deg(gamma_descent), 3)) + "°")
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Altitude (meters)")
+    plt.show()
+
+    #———————— Final Phase: Level Flight at Constant Altitude —————————#
+    initial_finalcruise = state_descent[:, -1]  # Dernier état de la descente
+    Cl_State_space_zd = control.ss(Az, Bz * final_altitude, Cz, Dz)
+
+    u_final = np.ones_like(t_final) * final_altitude  # Signal d'entrée
+    altitude_finalcruise, state_finalcruise, _ = control.forced_response(
+        Cl_State_space_zd, T=t_final, U=u_final, X0=initial_finalcruise
+    )
+
+    plt.figure(11)
+    plt.plot(t_final, altitude_finalcruise, label='final cruise')
+    plt.title("Final cruise phase of the aircraft")
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Altitude (meters)")
+    plt.show()
+
+    #——————————————— Plot All Phases Together ——————————————#
+    plt.figure(12)
+    t_1 = t_ascent + t_initial[-1]
+    t_2 = t_cruise + t_1[-1]
+    t_3 = t_descent + t_2[-1]
+    t_4 = t_final + t_3[-1]
+
+    plt.plot(t_initial, altitude_initial, label='start cruise')
+    plt.plot(t_1, altitude_ascent, label='ascent')
+    plt.plot(t_2, altitude_cruise, label='cruise')
+    plt.plot(t_3, altitude_descent, label='descent')
+    plt.plot(t_4, altitude_finalcruise, label='final cruise')
+
+    plt.title("Flight phases")
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Altitude (meters)")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+# Appel de la fonction avec vos paramètres
+flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z) 
