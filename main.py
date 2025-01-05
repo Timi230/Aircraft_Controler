@@ -548,58 +548,74 @@ Cl_State_space_z, Az, Bz, Dz= Z_feedback_loop(A_gamma, B_gamma, D_gamma)
 print("\n----------------------------------")
 print("ADD A SAT IN GAMMA CONTROL LOOP")
 print("----------------------------------")
-def saturation(A_gamma_2, B_gamma_2, alpha_eq, alpha0):
- 
+
+def saturation(A_gamma_2, B_gamma_2, alpha_eq, alpha0, delta_nz_target):
+    """
+    Fonction pour évaluer alpha_max et trouver gamma_max par la méthode de bissection.
+    """
+    # Matrices d'état
     A_gamma = A_gamma_2
     B_gamma = B_gamma_2
-    
-    C_alpha_sat = np.array([[0,1,0,0,0]])
+    C_alpha_sat = np.array([[0, 1, 0, 0, 0]])
     D_alpha_sat = 0
-    
-    sys_gamma_alpha = ss(A_gamma,B_gamma,C_alpha_sat,D_alpha_sat)
+
+    # Système d'état à transfert
+    sys_gamma_alpha = ss(A_gamma, B_gamma, C_alpha_sat, D_alpha_sat)
     TF_gamma_alpha = ss2tf(sys_gamma_alpha)
-    
-    alpha_max = alpha_eq + (alpha_eq - alpha0)*3.1
-    
 
-    def f(gamma,TF,alpha_max):
+    # Calcul de alpha_max en fonction de alpha_eq, alpha0, et Δnz_target
+    alpha_max = alpha_eq + (alpha_eq - alpha0) * delta_nz_target
 
-        f_gamma =  np.max(control.matlab.step(gamma*TF)[0]) - alpha_max
-
+    # Fonction f(gamma) = max(step_response) - alpha_max
+    def f(gamma, TF, alpha_max):
+        response = control.matlab.step(gamma * TF)[0]
+        f_gamma = np.max(response) - alpha_max
         return f_gamma
-    
-    def dichotomie(f,a,b,e,TF,alpha_max):
-        delta = 1
+
+    # Méthode de bissection
+    def dichotomie(f, a, b, e, TF, alpha_max):
+        """
+        Trouver la valeur de gamma_max en utilisant la méthode de bissection.
+        """
+        delta = abs(b - a)
         while delta > e:
             m = (a + b) / 2
-            delta = abs(b - a)
-            if f(m,TF,alpha_max) == 0:
+            if f(m, TF, alpha_max) == 0:
                 return m
-            elif f(a,TF,alpha_max)*f(m,TF,alpha_max) > 0:
+            elif f(a, TF, alpha_max) * f(m, TF, alpha_max) > 0:
                 a = m
             else:
                 b = m
-        return a, b
+            delta = abs(b - a)
+        return (a + b) / 2
 
-    gamma_min, gamma_max = dichotomie(f,0,10,1e-15,TF_gamma_alpha,alpha_max)
-    
-    gamma_opt = (gamma_min + gamma_max)/2
-    
+    # Recherche de gamma_max par bissection
+    gamma_opt = dichotomie(f, 0, 10, 1e-15, TF_gamma_alpha, alpha_max)
 
+    # Méthode alternative pour gamma_opt
     alpha_max_step = np.max(control.matlab.step(TF_gamma_alpha)[0])
-    
-    gamma_opt_2 = alpha_max/alpha_max_step
-    
-    print('optimal gamma (DICHOTOMIE METHOD)')
-    print("gamma = ", gamma_opt)
-    
-    print('optimal gamma (DIVIDING METHOD)')
-    print("gamma = ", gamma_opt_2)
+    gamma_opt_2 = alpha_max / alpha_max_step
 
-    return alpha_max, gamma_max
+    # Affichage des résultats
+    print('Optimal gamma (Bissection Method):')
+    print(f"gamma = {gamma_opt:.6f}")
+    print('Optimal gamma (Scaling Method):')
+    print(f"gamma = {gamma_opt_2:.6f}")
 
-alpha_max, gamma_max  = saturation(A_gamma, B_gamma, alpha_eq, alpha0)
+    # Recalculer et afficher les nouvelles matrices d'état avec gamma_max
+    B_new = gamma_opt * B_gamma
+    sys_updated = ss(A_gamma, B_new, C_alpha_sat, D_alpha_sat)
 
+    print("\nUpdated State-Space Representation:")
+    print("A =\n", sys_updated.A)
+    print("B =\n", sys_updated.B)
+    print("C =\n", sys_updated.C)
+    print("D =\n", sys_updated.D)
+
+    return alpha_max, gamma_opt, gamma_opt_2, sys_updated
+
+alpha_max, gamma_max_bissection, gamma_max_scaling, sys_final = saturation(A_gamma, B_gamma, alpha_eq, alpha0, 3.2)
+print(ss2tf(sys_final))
 
 # print("\n----------------------------------")
 # print("FLIGHT MANAGEMENT")
@@ -857,4 +873,4 @@ def flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z):
     plt.grid(True)
     plt.show()
 
-flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z)
+#flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z)
