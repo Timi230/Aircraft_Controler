@@ -601,127 +601,260 @@ def saturation(A_gamma_2, B_gamma_2, alpha_eq, alpha0):
 alpha_max, gamma_max  = saturation(A_gamma, B_gamma, alpha_eq, alpha0)
 
 
+# print("\n----------------------------------")
+# print("FLIGHT MANAGEMENT")
+# print("----------------------------------")
+# import numpy as np
+# import control
+# import matplotlib.pyplot as plt
+
+# def flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z):
+#     initial_altitude = 0             # mètres
+#     Cruise_altitude = 1828.8        # mètres
+#     final_altitude = 800            # mètres
+#     gamma_ascent = np.deg2rad(12)   # angle de montée en radians
+#     gamma_descent = np.deg2rad(-6)  # angle de descente en radians
+
+#     # Vecteur temps pour chaque phase
+#     t_initial = np.linspace(0, 10, 1000)
+#     t_ascent = np.linspace(0, 15.3, 1000)
+#     t_cruise = np.linspace(0, 100, 1000)
+#     t_descent = np.linspace(0, 12.3, 1000)
+#     t_final = np.linspace(0, 10, 1000)
+
+#     #————————————— Initial Cruise Phase ————————————————#
+#     initial = np.zeros((5,)) 
+#     initial[-2] = initial_altitude  # Altitude initiale dans l'état
+
+#     u_initial = np.ones_like(t_initial) * initial_altitude  # Signal d'entrée
+#     altitude_initial, state_initial = control.forced_response(
+#         Cl_State_space_z, T=t_initial, U=u_initial, X0=initial
+#     )
+
+#     plt.figure(7)
+#     plt.plot(t_initial, altitude_initial, label='initial phase')
+#     plt.title("Initial phase of the aircraft")
+#     plt.xlabel("Time (seconds)")
+#     plt.ylabel("Altitude (meters)")
+#     plt.show()
+
+#     #———————— Ascent Phase with a Constant Flight Path Angle ————————#
+#     initial_ascent = state_initial[-1, :]  # Dernier état de la phase initiale
+#     Cz = np.array([[0, 0, 0, 0, 1]])  # Matrice de sortie
+#     SS_gamma_h = control.ss(Aq, Bq * gamma_ascent, Cz, Dz)
+
+#     u_ascent = np.ones_like(t_ascent) * gamma_ascent  # Signal d'entrée
+#     altitude_ascent, state_ascent = control.forced_response(
+#         SS_gamma_h, T=t_ascent, U=u_ascent, X0=initial_ascent
+#     )
+
+#     plt.figure(8)
+#     plt.plot(t_ascent, altitude_ascent, label='ascent')
+#     plt.title("Altitude during ascent phase at γ = " + str(round(np.rad2deg(gamma_ascent), 3)) + "°")
+#     plt.xlabel("Time (seconds)")
+#     plt.ylabel("Altitude (meters)")
+#     plt.show()
+
+#     #——————————— Cruise Flight at Constant Altitude ———————————#
+#     initial_cruise = state_ascent[-1]  # Dernier état de la montée
+#     Cl_State_space_zh = control.ss(Az, Bz * Cruise_altitude, Cz, Dz)
+
+#     u_cruise = np.ones_like(t_cruise) * Cruise_altitude  # Signal d'entrée
+#     altitude_cruise, state_cruise = control.forced_response(
+#         Cl_State_space_zh, T=t_cruise, U=u_cruise, X0=initial_cruise
+#     )
+
+#     plt.figure(9)
+#     plt.plot(t_cruise, altitude_cruise, label='cruise')
+#     plt.title("Cruise phase of the aircraft")
+#     plt.xlabel("Time (seconds)")
+#     plt.ylabel("Altitude (meters)")
+#     plt.show()
+
+#     #—————————— Descent Phase with a Constant Flight Path Angle ——————————#
+#     initial_descent = state_cruise[-1]  # Dernier état du vol de croisière
+#     SS_gammad = control.ss(Aq, Bq * gamma_descent, Cz, Dz)
+
+#     u_descent = np.ones_like(t_descent) * gamma_descent  # Signal d'entrée
+#     altitude_descent, state_descent = control.forced_response(
+#         SS_gammad, T=t_descent, U=u_descent, X0=initial_descent
+#     )
+
+#     plt.figure(10)
+#     plt.plot(t_descent, altitude_descent, label='descent')
+#     plt.title("Altitude during descent phase at γ = " + str(round(np.rad2deg(gamma_descent), 3)) + "°")
+#     plt.xlabel("Time (seconds)")
+#     plt.ylabel("Altitude (meters)")
+#     plt.show()
+
+#     #———————— Final Phase: Level Flight at Constant Altitude —————————#
+#     initial_finalcruise = state_descent[-1]  # Dernier état de la descente
+#     Cl_State_space_zd = control.ss(Az, Bz * final_altitude, Cz, Dz)
+
+#     u_final = np.ones_like(t_final) * final_altitude  # Signal d'entrée
+#     altitude_finalcruise, state_finalcruise = control.forced_response(
+#         Cl_State_space_zd, T=t_final, U=u_final, X0=initial_finalcruise
+#     )
+
+#     plt.figure(11)
+#     plt.plot(t_final, altitude_finalcruise, label='final cruise')
+#     plt.title("Final cruise phase of the aircraft")
+#     plt.xlabel("Time (seconds)")
+#     plt.ylabel("Altitude (meters)")
+#     plt.show()
+
+#     #——————————————— Plot All Phases Together ——————————————#
+#     plt.figure(12)
+#     t_1 = t_ascent + t_initial[-1]
+#     t_2 = t_cruise + t_1[-1]
+#     t_3 = t_descent + t_2[-1]
+#     t_4 = t_final + t_3[-1]
+
+#     plt.plot(t_initial, altitude_initial, label='start cruise')
+#     plt.plot(t_1, altitude_ascent, label='ascent')
+#     plt.plot(t_2, altitude_cruise, label='cruise')
+#     plt.plot(t_3, altitude_descent, label='descent')
+#     plt.plot(t_4, altitude_finalcruise, label='final cruise')
+
+#     plt.title("Flight phases")
+#     plt.xlabel("Time (seconds)")
+#     plt.ylabel("Altitude (meters)")
+#     plt.legend()
+#     plt.grid(True)
+#     plt.show()
+
+# # Appel de la fonction avec vos paramètres
+# flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z) 
+
+
 print("\n----------------------------------")
 print("FLIGHT MANAGEMENT")
 print("----------------------------------")
-import numpy as np
-import control
-import matplotlib.pyplot as plt
-
 def flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z):
-    initial_altitude = 0             # mètres
-    Cruise_altitude = 1828.8        # mètres
-    final_altitude = 800            # mètres
-    gamma_ascent = np.deg2rad(12)   # angle de montée en radians
-    gamma_descent = np.deg2rad(-6)  # angle de descente en radians
-
-    # Vecteur temps pour chaque phase
-    t_initial = np.linspace(0, 10, 1000)
-    t_ascent = np.linspace(0, 15.3, 1000)
-    t_cruise = np.linspace(0, 100, 1000)
-    t_descent = np.linspace(0, 12.3, 1000)
-    t_final = np.linspace(0, 10, 1000)
+    initial_altitude = 0             #metres 
+    Cruise_altitude = 1828.8          #metres
+    final_altitude = 800            #metres
+    gamma_ascent = np.deg2rad(12)        #path angle ascent setting: degree
+    gamma_descent = np.deg2rad(-6)     #path angle descent setting: degree
 
     #————————————— Initial Cruise Phase ————————————————#
-    initial = np.zeros((5,)) 
-    initial[-2] = initial_altitude  # Altitude initiale dans l'état
 
-    u_initial = np.ones_like(t_initial) * initial_altitude  # Signal d'entrée
-    altitude_initial, state_initial, _ = control.forced_response(
-        Cl_State_space_z, T=t_initial, U=u_initial, X0=initial
-    )
+    initial  = np.zeros((5,1)) 
+    initial[-2,0] = initial_altitude
+
+    altitude_initial, time_initial, state_initial = control.matlab.step(
+        initial_altitude*Cl_State_space_z,
+        T = 10,
+        X0 = initial,
+        return_x = True)
 
     plt.figure(7)
-    plt.plot(t_initial, altitude_initial, label='initial phase')
+
+    plt.plot(time_initial,altitude_initial,label = 'initial phase')
     plt.title("Initial phase of the aircraft")
     plt.xlabel("Time (seconds)")
     plt.ylabel("Altitude (meters)")
     plt.show()
 
-    #———————— Ascent Phase with a Constant Flight Path Angle ————————#
-    initial_ascent = state_initial[:, -1]  # Dernier état de la phase initiale
-    Cz = np.array([[0, 0, 0, 0, 1]])  # Matrice de sortie
-    SS_gamma_h = control.ss(Aq, Bq * gamma_ascent, Cz, Dz)
+    #———————————————— An ascent phase with a constant flight path angle ——————————————————#
 
-    u_ascent = np.ones_like(t_ascent) * gamma_ascent  # Signal d'entrée
-    altitude_ascent, state_ascent, _ = control.forced_response(
-        SS_gamma_h, T=t_ascent, U=u_ascent, X0=initial_ascent
-    )
+    initial_ascent = state_initial[-1,:]
+    Cz = np.array([[0],[0],[0],[0],[1]]).T
+    SS_gamma_h  = control.ss(Aq, Bq * gamma_ascent, Cz , Dz)
+
+    altitude_ascent, time_ascent, state_ascent = control.matlab.step(
+        SS_gamma_h,
+        T = 15.3,
+        X0 = initial_ascent,
+        return_x = True)
 
     plt.figure(8)
-    plt.plot(t_ascent, altitude_ascent, label='ascent')
-    plt.title("Altitude during ascent phase at γ = " + str(round(np.rad2deg(gamma_ascent), 3)) + "°")
+
+    plt.plot(time_ascent,altitude_ascent,label = 'ascent')
+    plt.title("Altitude during the ascent phase at $gamma$ = " + str(round(np.rad2deg(gamma_ascent),3)) + " degrees")
     plt.xlabel("Time (seconds)")
-    plt.ylabel("Altitude (meters)")
+    plt.ylabel("Altitude (metres)")
     plt.show()
 
-    #——————————— Cruise Flight at Constant Altitude ———————————#
-    initial_cruise = state_ascent[:, -1]  # Dernier état de la montée
+    #—————————————————— A cruise flight at constant altitude (of about 100s) ————————————————#
+
+    initial_cruise = state_ascent[-1,:]
+
     Cl_State_space_zh = control.ss(Az, Bz * Cruise_altitude, Cz, Dz)
 
-    u_cruise = np.ones_like(t_cruise) * Cruise_altitude  # Signal d'entrée
-    altitude_cruise, state_cruise, _ = control.forced_response(
-        Cl_State_space_zh, T=t_cruise, U=u_cruise, X0=initial_cruise
-    )
+    altitude_cruise, time_cruise, state_cruise = control.matlab.step(
+        Cl_State_space_zh,
+        T = 100,
+        X0 = initial_cruise,
+        return_x = True)
 
     plt.figure(9)
-    plt.plot(t_cruise, altitude_cruise, label='cruise')
+
+    plt.plot(time_cruise,altitude_cruise,label = 'cruise')
     plt.title("Cruise phase of the aircraft")
     plt.xlabel("Time (seconds)")
     plt.ylabel("Altitude (meters)")
     plt.show()
 
-    #—————————— Descent Phase with a Constant Flight Path Angle ——————————#
-    initial_descent = state_cruise[:, -1]  # Dernier état du vol de croisière
-    SS_gammad = control.ss(Aq, Bq * gamma_descent, Cz, Dz)
+    #————————————— A descent phase with a constant flight path angle ———————————————#
 
-    u_descent = np.ones_like(t_descent) * gamma_descent  # Signal d'entrée
-    altitude_descent, state_descent, _ = control.forced_response(
-        SS_gammad, T=t_descent, U=u_descent, X0=initial_descent
-    )
+    initial_descent = state_cruise[-1,:]
+
+    SS_gammad  = control.ss(Aq, Bq * gamma_descent , Cz , Dz)
+    altitude_descent, time_descent, state_descent = control.matlab.step(
+        SS_gammad,
+        T = 12.3,
+        X0 = initial_descent,
+        return_x = True)
 
     plt.figure(10)
-    plt.plot(t_descent, altitude_descent, label='descent')
-    plt.title("Altitude during descent phase at γ = " + str(round(np.rad2deg(gamma_descent), 3)) + "°")
-    plt.xlabel("Time (seconds)")
+
+    plt.plot(time_descent,altitude_descent,label = 'descent')
+    plt.title("Altitude during the descent phase at $gamma$ = " + str(round(np.rad2deg(gamma_descent),3)) + " degrees")
+    plt.xlabel("time (seconds)")
     plt.ylabel("Altitude (meters)")
     plt.show()
 
-    #———————— Final Phase: Level Flight at Constant Altitude —————————#
-    initial_finalcruise = state_descent[:, -1]  # Dernier état de la descente
-    Cl_State_space_zd = control.ss(Az, Bz * final_altitude, Cz, Dz)
+    #——————————————————— A final flare and a small phase of level flight at constant altitude ————————————————#
 
-    u_final = np.ones_like(t_final) * final_altitude  # Signal d'entrée
-    altitude_finalcruise, state_finalcruise, _ = control.forced_response(
-        Cl_State_space_zd, T=t_final, U=u_final, X0=initial_finalcruise
-    )
+    initial_finalcruise = state_descent[-1,:]
+
+    Cl_State_space_zd = control.ss(Az, Bz * final_altitude , Cz, Dz)
+    altitude_finalcruise, time_finalcruise, state_finalcruise = control.matlab.step(
+        Cl_State_space_zd,
+        T = 10,
+        X0 = initial_finalcruise,
+        return_x = True)
 
     plt.figure(11)
-    plt.plot(t_final, altitude_finalcruise, label='final cruise')
-    plt.title("Final cruise phase of the aircraft")
-    plt.xlabel("Time (seconds)")
+    plt.plot(time_finalcruise,altitude_finalcruise,label = 'final cruise')
+    plt.title("Final Cruise phase of the aircraft")
+    plt.xlabel("time (seconds)")
     plt.ylabel("Altitude (meters)")
     plt.show()
 
-    #——————————————— Plot All Phases Together ——————————————#
-    plt.figure(12)
-    t_1 = t_ascent + t_initial[-1]
-    t_2 = t_cruise + t_1[-1]
-    t_3 = t_descent + t_2[-1]
-    t_4 = t_final + t_3[-1]
+    #—————————————————————- All the phases of the aircraft ———————————————————#
 
-    plt.plot(t_initial, altitude_initial, label='start cruise')
-    plt.plot(t_1, altitude_ascent, label='ascent')
-    plt.plot(t_2, altitude_cruise, label='cruise')
-    plt.plot(t_3, altitude_descent, label='descent')
-    plt.plot(t_4, altitude_finalcruise, label='final cruise')
+    plt.figure(12)
+    plt.plot(time_initial,altitude_initial,label = 'start cruise')
+
+    time_1 = time_ascent + time_initial[-1]
+    plt.plot(time_1,altitude_ascent,label = 'ascent')
+
+    time_2 = time_1[-1] + time_cruise
+    plt.plot(time_2,altitude_cruise,label = 'cruise')
+
+    time_3 = time_descent + time_2[-1]
+    plt.plot(time_3,altitude_descent,label = 'descent') 
+
+    time_4 = time_finalcruise + time_3[-1]
+    plt.plot(time_4,altitude_finalcruise,label = 'final cruise')
 
     plt.title("Flight phases")
-    plt.xlabel("Time (seconds)")
-    plt.ylabel("Altitude (meters)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Altitude (m)")
     plt.legend()
     plt.grid(True)
     plt.show()
 
-# Appel de la fonction avec vos paramètres
-flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z) 
+flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z)
