@@ -6,7 +6,7 @@ from control.matlab import *
 import math as m
 from scipy.interpolate import interp1d
 from pylab import *
-from sisopy31 import *
+from sisopy31VS import *
 
 
 
@@ -54,7 +54,7 @@ Y = Xfδ - Xg                     # Y
 
 #---------------------------------------------------------------------
 
-def angle():
+def angle(X=X, Y=Y):
     # ————— Initialisation du point d'équilibre pour l'étude de l'aéronef —————#
 
     alpha_eq0   = 0                     # Initialisation de l'angle d'incidence au point d'équilibre : radians
@@ -123,7 +123,7 @@ print(f"alpha_eq = {round(alpha_eq, 10)}")
 print(f"Fp_xeq = {round(Fp_xeq, 10)}")
 print("-------------")
 
-def space_model(C_Zeq,C_Xeq,C_Xδm, alpha_eq, Fp_xeq):
+def space_model(C_Zeq,C_Xeq,C_Xδm, alpha_eq, Fp_xeq, X=X, Y=Y):
 
     #SS MODEL INIT
     gamma_eq   = 0
@@ -616,6 +616,101 @@ def saturation(A_gamma_2, B_gamma_2, alpha_eq, alpha0, delta_nz_target):
 
 alpha_max, gamma_max_bissection, gamma_max_scaling, sys_final = saturation(A_gamma, B_gamma, alpha_eq, alpha0, 3.2)
 print(ss2tf(sys_final))
+
+
+print("\n----------------------------------")
+print("CHANGE GRAVITY CENTER")
+print("----------------------------------")
+
+def modify_state_space(c_initial=c):
+    """
+    Modifie la représentation d'espace d'état en fonction du nouveau centre de gravité (c).
+    """
+    
+    # Calcul de la nouvelle valeur de c
+    c_new = c_initial * 1.1  # c = f * 1.1
+    
+    # Calcul des nouvelles valeurs de X et Y
+    Xg_new = - (c_new * l_t)  
+    X_new = Xf - Xg_new                      
+    Y_new = Xfδ - Xg_new
+    
+    # Calcul des nouvelles matrices d'état
+    C_Zeq, C_Xeq, C_Xδm, alpha_eq, Fp_xeq = angle(X_new, Y_new)
+    
+    A,B, C, D = space_model(C_Zeq, C_Xeq, C_Xδm, alpha_eq, Fp_xeq, X_new, Y_new)
+
+    return A, B
+
+A_new, B_new = modify_state_space()
+
+sys_new = control.ss(A_new, B_new, C, D)
+control.matlab.damp(sys)  
+
+time, response = control.matlab.step(sys_new)
+response_selected = response[0, 0, :]  
+
+
+print("Time shape:", time.shape)
+print("Response shape:", response_selected.shape)
+
+
+plt.figure()
+plt.plot(time, response_selected)
+plt.plot([0, time[-1]], [response_selected[-1], response_selected[-1]], 'k--', lw=1, label="Steady-state value")
+plt.plot([0, time[-1]], [1.05 * response_selected[-1], 1.05 * response_selected[-1]], 'k--', lw=1, label="5% upper bound")
+plt.plot([0, time[-1]], [0.95 * response_selected[-1], 0.95 * response_selected[-1]], 'k--', lw=1, label="5% lower bound")
+plt.title("Step Response (New State-Space)")
+plt.xlabel("Time (s)")
+plt.ylabel("Response")
+plt.grid()
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # print("\n----------------------------------")
 # print("FLIGHT MANAGEMENT")

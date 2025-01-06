@@ -61,32 +61,67 @@ Fp_xeq      = Fp_xeq0               # Valeur initiale pour Fp_xeq
 
 i = 0
 
-#---------------------------------------------------------------------
-for ite in range(max_iter):
-    print(alpha_eq)
-    # Calculate equilibrium coefficients
-    C_Z_eq = (mass*g - Fp_xeq0*np.sin(alpha_eq)) / (Q*S)
-    C_X_eq = Cx0 + k*(C_Z_eq*C_Z_eq)
-    C_X_delta_m = 2*k*C_Z_eq*Czδm
-    
-    # Update control surface deflection
-    delta_m_eq = δm0 - (((C_X_eq*np.sin(alpha_eq) + C_Z_eq*np.cos(alpha_eq))*X) / ((C_X_delta_m*np.sin(alpha_eq) + Czδm*np.cos(alpha_eq))*(Y-X)))
 
-    # Update angle of attack and force along x-axis
-    alpha_new = alpha_eq0 + (C_Z_eq / Cz_alpha) - (Czδm / Cz_alpha)*delta_m_eq
-    Fp_xeq0_new = (Q*S*C_X_eq)/np.cos(alpha_new)
-    
-    # Update alpha_eq for next iteration and force along x-axis
-    alpha_eq = alpha_new
-    Fp_xeq0 = Fp_xeq0_new
-    
-# Check for convergence
-    if abs(alpha_new - alpha_eq) < epsilon:
-        print("Convergence achieved")
-        break
+# ---------------------------------------------------------------------------------------
 
-    else:
-        print("Convergence not achieved within the maximum number of iterations")
-        
-# Results
-print(f"Equilibrium angle: {alpha_eq}")
+# Matrices du système
+A = np.array([
+    [-0.0591, -0.02, -0.094, 0, 0, 0],
+    [0.0389, 0, 2.1824, 0, 0, 0],
+    [-0.0389, 0, -2.1824, 1, 0, 0],
+    [0, 0, -43.6329, -1.1223, 0, 0],
+    [0, 0, 0, 1, 0, 0],
+    [0, 489.1036, 0, 0, 0, 0]
+])
+B = np.array([[0], [0.4306], [-0.4306], [-77.36], [0], [0]])
+C = np.eye(6)
+D = np.zeros((6, 1))
+# Calcul du LQR
+Q = np.diag([1, 1, 1, 1, 100, 1])  # Pondération des états
+R = np.diag([[0.1]])  # Pondération des commandes
+
+print("R", R)
+
+poles_A = np.linalg.eigvals(A)
+print("\nA poles:", poles_A)
+
+K, _, _ = control.lqr(A, B, Q, R)
+print("Gain matrix K:", K)
+
+# Pôles en boucle fermée
+
+
+# Représentation du système en boucle fermée
+A_closed = A - B @ K
+
+poles_closed = np.linalg.eigvals(A_closed)
+print("Closed-loop poles:", poles_closed)
+
+
+
+# Vérification des pôles en boucle fermée
+poles, damping_ratios, frequencies = control.damp(control.ss(A_closed, B, C, D))
+print("\nClosed-loop poles, damping ratios, and frequencies:")
+for i in range(len(poles)):
+    print(f"Pole: {poles[i]:.4f}, Damping: {damping_ratios[i]:.4f}, Frequency: {frequencies[i]:.4f} Hz")
+
+# Simulez la réponse en boucle fermée
+time = np.linspace(0, 10, 1000)  # Temps
+response, time = control.matlab.step(control.ss(A_closed, B, C, D), time)
+
+
+print("shape of repsonse :", response.shape)
+print("shape of repsonse :", time.shape)
+
+# Extraire la sortie associée à l'altitude (5ᵉ état)
+
+
+# Tracer la réponse indiciaire
+plt.figure(figsize=(10, 6))
+plt.plot(time, response[:,0,0], label="Altitude response (closed-loop)", color="blue")
+plt.title("Step Response with LQ Controller")
+plt.xlabel("Time (s)")
+plt.ylabel("Altitude (m)")
+plt.grid()
+plt.legend()
+plt.show()
