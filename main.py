@@ -361,7 +361,7 @@ def get_KRvalue(A,B):
     Cq = np.array([[0], [0], [1], [0], [0]]).T # output matrix for q 
                                             
     SS_q = control.ss(Anew, Bnew, Cq, Dnew)    # compute the state space and transfer function associated to find Kr
-    TF_q = control.ss2tf(SS_q)
+    TF_q = minreal(control.tf(SS_q))
     sisotool(-TF_q) 
 
     Kr = -0.13225   # From the sisotool when xi = 0.75 still 
@@ -427,7 +427,7 @@ def q_feedback_loop(Anew, Bnew, Cq, Dnew, Kr, TqDm_tf):
     y, t = control.matlab.step(tf_alpha_no_washout, t)
     plt.plot(t, y, label = "Closed-loop with no washout filter", color = "blue")
     y, t = control.matlab.step(tf_alpha_washout, t)
-    plt.plot(t, y, linestyle = (0, (5, 10)), color = "green", label = "Closed-loop with washout filter")
+    plt.plot(t, y, color = "green", label = "Closed-loop with washout filter")
     plt.title("Washout filter")
     plt.grid()
     plt.legend()
@@ -452,7 +452,7 @@ def gamma_feedback_loop(Aq, Bq, Dq):
     SS_gamma  = control.ss(Aq, Bq, C_gamma , Dq)
     TF_gamma  = minreal(control.tf(SS_gamma))
     sisotool(TF_gamma)
-    K_gamma = 16.42
+    K_gamma = 22.96630
     A_gamma = Aq - K_gamma * Bq @ C_gamma
     B_gamma = K_gamma * Bq
     D_gamma = K_gamma * Dq
@@ -499,18 +499,20 @@ print("Z FEEDBACK LOOP")
 print("----------------------------------")
 def Z_feedback_loop(A_gamma, B_gamma, D_gamma):
 
+    print("\n————————————————— Closed loop state space representation ————————————————\n")
     Cz = np.array([[0],[0],[0],[0],[1]]).T
     SS_z = control.ss(A_gamma, B_gamma, Cz, D_gamma)
-    TF_z = control.ss2tf(SS_z)
-
+    TF_z = minreal(control.tf(SS_z))
+    sisotool(TF_z)
     Kz = 0.00010
-
     Az = A_gamma - Kz * B_gamma @ Cz
     Bz = Kz * B_gamma
     Dz = Kz * D_gamma
 
     Cl_State_space_z = control.ss(Az, Bz, Cz, Dz)
-    print("Closed loop of the State Space representation of $z$ :\n", Cl_State_space_z)
+    Cl_Tf_ss_z = control.tf(Cl_State_space_z)
+    print(Cl_State_space_z)
+    control.matlab.damp(Cl_State_space_z)
 
     print("\n————————————————— TF closed loop ————————————————\n")
     Cl_Tf_ss_z = control.tf(Cl_State_space_z)
@@ -546,7 +548,7 @@ Cl_State_space_z, Az, Bz, Dz= Z_feedback_loop(A_gamma, B_gamma, D_gamma)
 
 
 print("\n----------------------------------")
-print("ADD A SAT IN GAMMA CONTROL LOOP")
+print("ADD A SATURATION IN GAMMA CONTROL LOOP")
 print("----------------------------------")
 
 def saturation(A_gamma_2, B_gamma_2, alpha_eq, alpha0, delta_nz_target):
@@ -565,6 +567,7 @@ def saturation(A_gamma_2, B_gamma_2, alpha_eq, alpha0, delta_nz_target):
 
     # Calcul de alpha_max en fonction de alpha_eq, alpha0, et Δnz_target
     alpha_max = alpha_eq + (alpha_eq - alpha0) * delta_nz_target
+    print(f"alpha_max = {alpha_max:.6f}")
 
     # Fonction f(gamma) = max(step_response) - alpha_max
     def f(gamma, TF, alpha_max):
