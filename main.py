@@ -182,32 +182,32 @@ control.matlab.damp(sys)  # calcul of the damping ratio
 print(sys.ninputs)  # Nombre d'entrées
 print(sys.noutputs) # Nombre de sorties
 
-k = sisotool(minreal(sys[0,0]))
+# k = sisotool(minreal(sys[0,0]))
 
-def calculate_thrust():
-    # Calcul de la traînée aérodynamique
-    F_drag = (1/2) * rho * V_eq**2 * S * C_Xeq
-    print(f"Traînée (F_drag): {F_drag:.2f} N")
+# def calculate_thrust():
+#     # Calcul de la traînée aérodynamique
+#     F_drag = (1/2) * rho * V_eq**2 * S * C_Xeq
+#     print(f"Traînée (F_drag): {F_drag:.2f} N")
     
-    # Angle de vol en radians (gamma_eq est généralement 0 pour un vol horizontal)
-    gamma_eq = 0
+#     # Angle de vol en radians (gamma_eq est généralement 0 pour un vol horizontal)
+#     gamma_eq = 0
     
-    # Composante longitudinale de la force gravitationnelle
-    F_gravity = mass * g * m.sin(gamma_eq)
-    print(f"Force gravitationnelle (F_gravity): {F_gravity:.2f} N")
+#     # Composante longitudinale de la force gravitationnelle
+#     F_gravity = mass * g * m.sin(gamma_eq)
+#     print(f"Force gravitationnelle (F_gravity): {F_gravity:.2f} N")
     
-    # Composante longitudinale de la force aérodynamique (Fp_xeq)
-    Fp_xeq = (Q * S * C_Xeq) / m.cos(alpha_eq)
-    print(f"Force longitudinale (Fp_xeq): {Fp_xeq:.2f} N")
+#     # Composante longitudinale de la force aérodynamique (Fp_xeq)
+#     Fp_xeq = (Q * S * C_Xeq) / m.cos(alpha_eq)
+#     print(f"Force longitudinale (Fp_xeq): {Fp_xeq:.2f} N")
     
-    # Calcul de la poussée
-    F_tau = F_drag + F_gravity - Fp_xeq
-    print(f"Charge de poussée calculée (F_τ): {F_tau:.2f} N")
+#     # Calcul de la poussée
+#     F_tau = F_drag + F_gravity - Fp_xeq
+#     print(f"Charge de poussée calculée (F_τ): {F_tau:.2f} N")
     
-    return F_tau
+#     return F_tau
 
-# Appel de la fonction avec affichage des résultats intermédiaires
-F_tau = calculate_thrust()
+# # Appel de la fonction avec affichage des résultats intermédiaires
+# F_tau = calculate_thrust()
 
 print("\n----------------------------------")
 print("STUDY OF THE UNCONTROLLED AIRCRAFT")
@@ -423,11 +423,11 @@ def q_feedback_loop(Anew, Bnew, Cq, Dnew, Kr, TqDm_tf):
 
     plt.figure(5)
     y, t = control.matlab.step(tf_alpha, t)
-    plt.plot(t, y, label = "Alpha alpha", color = "red")
+    plt.plot(t, y, label = "Open-loop", color = "red")
     y, t = control.matlab.step(tf_alpha_no_washout, t)
-    plt.plot(t, y, label = "Alpha alpha no washout", color = "blue")
+    plt.plot(t, y, label = "Closed-loop with no washout filter", color = "blue")
     y, t = control.matlab.step(tf_alpha_washout, t)
-    plt.plot(t, y, linestyle = (0, (5, 10)), color = "green", label = "Alpha alpha washout")
+    plt.plot(t, y, linestyle = (0, (5, 10)), color = "green", label = "Closed-loop with washout filter")
     plt.title("Washout filter")
     plt.grid()
     plt.legend()
