@@ -27,7 +27,7 @@ Rayon_terre=6370e3
 ft=0.3048
 
 deg=pi/180.0
-ussa76ut86=np.loadtxt('ussa76ut86.txt')
+ussa76ut86=np.loadtxt('data/ussa76ut86.txt')
 #    1            2 3 4  5                6             7                           8
 # altitude (km)          temperature (K)  Pression (Pa) masse volumique (kg/m^3)  vitesse du son (m/s)
 
