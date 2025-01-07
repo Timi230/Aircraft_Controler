@@ -480,7 +480,7 @@ def gamma_feedback_loop(Aq, Bq, Dq):
     SS_gamma  = control.ss(Aq, Bq, C_gamma , Dq)
     TF_gamma  = minreal(control.tf(SS_gamma))
     sisotool(TF_gamma)
-    K_gamma = 16.42
+    K_gamma = 22.96630
     A_gamma = Aq - K_gamma * Bq @ C_gamma
     B_gamma = K_gamma * Bq
     D_gamma = K_gamma * Dq
